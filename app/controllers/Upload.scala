@@ -4,17 +4,12 @@ import play.api.mvc._
 
 import java.io.{FileOutputStream, File}
 import utils.{ProcessUtils, IOUtils}
-import play.libs.Akka
-import akka.actor._
-import scala.concurrent.duration._
 
 import play.api.libs.iteratee._
 
-import akka.util.Timeout
-import akka.pattern.ask
 
-import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.{JsString, JsNumber, Json, JsValue}
+import java.util.concurrent.TimeoutException
 
 /**
  * User: Kayrnt
@@ -93,6 +88,7 @@ object Upload extends Controller {
   }
 
   //extract the archive and proceed
+  //, channel : Concurrent.Channel[JsValue]
   def useArchive(data: (Session, File)) = {
     val session = data._1
     val archive = data._2
@@ -100,7 +96,14 @@ object Upload extends Controller {
     //unzip
     val command = "unzip -n " + archive.getAbsolutePath + " -d " + directoryPath
     println(command)
-    ProcessUtils.executeCommandLine(command, 5000)
+    try {
+      ProcessUtils.executeCommandLine(command, 5000)
+    }
+    catch {
+      case e: TimeoutException => {
+
+      }
+    }
     //check if correctly extracted
     val directories = IOUtils.subdirectories(directoryPath)
     //case extracted at the root
@@ -125,75 +128,54 @@ object Upload extends Controller {
   }
 
 
-  def transform = WebSocket.async[JsValue] {
+  def transform = WebSocket.using[JsValue] {
     request => StringTool.start
 
   }
 
   object StringTool {
 
-    implicit val timeout = Timeout(1 second)
+    def start: (Iteratee[JsValue, _], Enumerator[JsValue]) = {
+      val (progressEnumerator, progressChannel) = Concurrent.broadcast[JsValue]
+      val iteratee = Iteratee.foreach[JsValue](
 
-    def start: scala.concurrent.Future[(Iteratee[JsValue, _], Enumerator[JsValue])] = {
-      val stringTool = Akka.system.actorOf(Props[StringTool])
+      {
+        value => println("received : " + value)
+          updateProgressTest(progressChannel)
+      })
+        .mapDone {
+        _ => println("Disconnected")
+      }
 
-      (stringTool ? Initialisation(true)).map {
+      (iteratee, progressEnumerator)
+    }
 
-        case Enum(enumerator) => {
-          println("initialisation of actor done... returning websocket elements")
-          println("Enumerator : "+enumerator.map(
-          value => println(value)
-          ))
 
-          val iteratee = Iteratee.foreach[JsValue](println).mapDone { _ =>
-              println("Disconnected")
+    def updateProgressTest(progressChannel: Concurrent.Channel[JsValue]) = {
+      new Thread(new Runnable {
+        def run() {
+          var progress = 0
+          while (progress < 100) {
+            notifyProgress(Message("in progress", progress), progressChannel);
+            Thread.sleep(1000)
+            progress += 5
           }
-
-          (iteratee, enumerator)
         }
-      }
+      }).run
     }
 
-  }
-
-  class StringTool extends Actor {
-
-    val (progressEnumerator, progressChannel) = Concurrent.broadcast[JsValue]
-
-    def receive = {
-      case Percent(percent) => {
-        self ! Message(percent+"%", percent)
-      }
-
-      case Message(msg, percent) => {
-        val json: JsValue = Json.toJson(
-          Map(
-            "value" -> JsNumber(percent),
-            "text" -> JsString(msg)
-          )
+    def notifyProgress(msg: Message, channel: Concurrent.Channel[JsValue]) {
+      val json: JsValue = Json.toJson(
+        Map(
+          "value" -> JsNumber(msg.percent),
+          "text" -> JsString(msg.message)
         )
-        notifyProgress(json)
-      }
-
-      case Initialisation(state) => {
-        sender ! Enum(progressEnumerator)
-        new Thread(new Runnable {
-          def run() {
-            Thread.sleep(3000)
-            self ! Message("starting...", 10)
-          }
-        }).run
+      )
+      channel.push(json)
     }
 
   }
 
-  def notifyProgress(msg: JsValue) {
-    println("notify progress")
-    progressChannel.push(msg)
-    println(" notify pushed")
-  }
-
-}
 
 }
 

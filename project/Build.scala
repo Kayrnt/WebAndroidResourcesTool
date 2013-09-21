@@ -14,7 +14,8 @@ object ApplicationBuild extends Build {
     "org.webjars" % "bootstrap" % "2.3.1",
     "org.webjars" % "flot" % "0.8.0",
     "com.typesafe.akka" %% "akka-testkit" % "2.1.4" % "test",
-    "net.lingala.zip4j" % "zip4j" % "1.3.1"
+    "net.lingala.zip4j" % "zip4j" % "1.3.1",
+     "com.google.guava" % "guava" % "15.0"
   )
 
   val main = play.Project(appName, appVersion, appDependencies).settings()

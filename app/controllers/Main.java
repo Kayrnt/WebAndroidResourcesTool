@@ -20,6 +20,7 @@ import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 
+import com.google.common.xml.XmlEscapers;
 import model.AndroidStringRessource;
 import model.ResourcesElement;
 import model.StringElement;
