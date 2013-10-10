@@ -21,7 +21,7 @@ object ProcessUtils {
     worker.start
     try {
       worker.join(timeout)
-      if (worker.exit != null) return worker.exit
+      if (worker.exit != -1) return worker.exit
       else throw new TimeoutException
     }
     catch {
