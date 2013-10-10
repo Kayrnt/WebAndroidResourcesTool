@@ -5,7 +5,8 @@
 GET         /                                                 controllers.Application.index
 POST        /upload                                           controllers.Upload.fileUploader
 GET         /upload                                           controllers.Upload.fileUploaderGet
-GET         /transform                                        controllers.Upload.transform
+GET         /transform                                        controllers.Processing.transform
+GET         /download/:uuid                                   controllers.Download.downloadProcessedFile(uuid)
 
 # Javascript routing
 GET         /assets/javascripts/routes                        controllers.Application.javascriptRoutes()

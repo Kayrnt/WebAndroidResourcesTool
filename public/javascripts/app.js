@@ -6,138 +6,86 @@
 
     var url = 'upload';
 
-    var myApp = angular.module('uploadModule', [
-            'blueimp.fileupload', 'ui.bootstrap'
-        ])
-        .config([
-            '$httpProvider', 'fileUploadProvider',
-            function ($httpProvider, fileUploadProvider) {
-                delete $httpProvider.defaults.headers.common['X-Requested-With'];
-                fileUploadProvider.defaults.redirect = window.location.href.replace(
-                    /\/[^\/]*$/,
-                    '/cors/result.html?%s'
-                );
-            }
-        ])
-
-        .controller('AppFileUploadController', [
-            '$scope', '$http', '$filter', '$window',
-            function ($scope, $http) {
-                $scope.options = {
-                    url: url,
-                    maxFileSize: 50000000,
-                    acceptFileTypes: /(\.|\/)(zip)$/i,
-                    done: new function (e, data) {
-                        console.log("file upload done");
-                        console.log("e " + e);
-                        console.log("data " + data);
-                        if (data != undefined) {
-                            $(body).append("<div ng-controller=\"ProgressController\" class=\"well pagination-centered text-center\"> <progress percent=\"dynamicObject\" class=\"progress-striped active\"></progress><p>Value: {{dynamicObject.value}}</p></div>");
-                            $(fileupload).hide();
-                            setupProgress();
-                        }
-                        console.log("replaced");
-                    },
-                    start: new function (e, data) {
-                        console.log("start");
-                    },
-                    stop: new function (e, data) {
-                        console.log("stop");
-                    },
-                    change: new function (e, data) {
-                        console.log("change");
-                    }
-                };
-
-                $('#fileupload')
-                    .bind('fileuploadcompleted', function (e, data) {
-                        console.log('Processing ' + data.files[data.index].name + ' done.');
-                    });
-
-            }
-        ])
-
-        .controller('FileDestroyController', [
-            '$scope', '$http',
-            function ($scope, $http) {
-                var file = $scope.file,
-                    state;
-                if (file.url) {
-                    file.$state = function () {
-                        return state;
-                    };
-                    file.$destroy = function () {
-                        state = 'pending';
-                        return $http({
-                            url: file.deleteUrl,
-                            method: file.deleteType
-                        }).then(
-                            function () {
-                                state = 'resolved';
-                                $scope.clear(file);
-                            },
-                            function () {
-                                state = 'rejected';
-                            }
-                        );
-                    };
-                } else if (!file.$cancel && !file._index) {
-                    file.$cancel = function () {
-                        $scope.clear(file);
-                    };
+    var myApp = angular.module('app', ['ngUpload', 'ui.bootstrap'])
+        .controller('mainCtrl', function ($scope, $compile) {
+            $scope.results = function (content, completed) {
+                if (completed) {
+                    console.log(content); // process content
+                    $(body).append($compile("<div id=\"progress\" ng-controller=\"ProgressController\" class=\"well pagination-centered text-center\"> <progress percent=\"dynamicObject\" class=\"progress-striped active\"></progress><p>Value: {{dynamicObject.value}}</p></div>")($scope));
+                    $(fileupload).hide();
                 }
+                else {
+                    console.log("else ->" + content + " completed ->"+completed);
+                    // 1. ignore content and adjust your model to show/hide UI snippets; or
+                    // 2. show content as an _operation progress_ information
+
+                }
+
+
+            }
+
+            $(file).change(function () {
+                console.log("onChange")
+                var fileName = $(file)[0].files[0].name;
+                $(filename).html(fileName);
+            });
+
+            console.log("prepared")
+
+        })
+
+    console.log("progress setup")
+
+    myApp.factory('progressSocketService', ['$rootScope', '$compile', function ($rootScope, $compile) {
+            console.log(" > Progress - Websocket factory...");
+            console.log(" compile : "+$compile)
+            // We return this object to anything injecting our service
+            var Service = {};
+
+            $rootScope.dynamicObject = {
+                value: 0,
+                text : null,
+                type: 'success'
+            };
+
+            //using play framework we get the absolute URL
+            var wsUrl = jsRoutes.controllers.Processing.transform().absoluteURL();
+            //replace the protocol to http ws
+            wsUrl = wsUrl.replace("http", "ws");
+
+            // Create our websocket object with the address to the websocket
+            var ws = new WebSocket(wsUrl);
+
+            ws.onopen = function () {
+                console.log("Socket has been opened!");
+            };
+
+            ws.onmessage = function (message) {
+                listener(JSON.parse(message.data));
+            };
+
+            function listener(data) {
+                console.log("Received data from websocket: ", data);
+                //update the progress bar
+                if(data.done == true){
+                    $(body).append($compile("<div id=\"done\"  class=\"well pagination-centered text-center\"><a href=\"/download/"+data.uuid+"\">Download file</a></p></div>")($rootScope));
+                    $(progress).hide();
+                }
+                else {
+                    $rootScope.dynamicObject.value = data.value;
+                    $rootScope.dynamicObject.text = data.text;
+                }
+
+                $rootScope.$apply()
+            }
+
+            return Service;
+        }])
+
+        .controller('ProgressController', [ '$rootScope', 'progressSocketService',
+            function ($rootScope, progressSocketService) {
+                console.log("service running");
             }
         ]);
-//
-    function setupProgress() {
-        myApp.factory('progressSocketService', ['$rootScope', function ($rootScope) {
-                console.log("Progress - Websocket factory...");
-                // We return this object to anything injecting our service
-                var Service = {
-
-
-                };
-
-                $rootScope.dynamicObject = {
-                    value: 0,
-                    type: 'success'
-                };
-
-                //using play framework we get the absolute URL
-                var wsUrl = jsRoutes.controllers.Upload.transform().absoluteURL();
-                //replace the protocol to http ws
-                wsUrl = wsUrl.replace("http", "ws");
-
-                // Create our websocket object with the address to the websocket
-                var ws = new WebSocket(wsUrl);
-
-                ws.onopen = function () {
-                    console.log("Socket has been opened!");
-                    var message = 0;
-                    ws.send(JSON.stringify(message));
-                };
-
-                ws.onmessage = function (message) {
-                    listener(JSON.parse(message.data));
-                };
-
-                function listener(data) {
-                    var messageObj = data;
-                    console.log("Received data from websocket: ", messageObj);
-                    //update the progress bar
-                    $rootScope.dynamicObject.value = messageObj.value;
-                    console.log("new value : " + $rootScope.dynamicObject.value);
-                    $rootScope.$apply()
-                }
-
-                return Service;
-            }])
-
-            .controller('ProgressController', [ '$rootScope', 'progressSocketService',
-                function ($rootScope, progressSocketService) {
-                    console.log("service running");
-                }
-            ]);
-    }
 
 }());

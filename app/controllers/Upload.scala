@@ -1,15 +1,21 @@
 package controllers
 
-import play.api.mvc._
 
 import java.io.{FileOutputStream, File}
-import utils.{ProcessUtils, IOUtils}
+import utils.ProcessUtils
+
+import play.api.mvc._
 
 import play.api.libs.iteratee._
 
 
-import play.api.libs.json.{JsString, JsNumber, Json, JsValue}
+import play.api.mvc.MaxSizeExceeded
+import play.api.libs.json._
 import java.util.concurrent.TimeoutException
+import org.apache.commons.io.{FileUtils, IOUtils}
+import scala.concurrent.ExecutionContext
+import ExecutionContext.Implicits.global
+
 
 /**
  * User: Kayrnt
@@ -47,11 +53,15 @@ object Upload extends Controller {
           finalUuid = uuid(request)
           println("uuid : " + finalUuid)
           val file = new File("upload/" + finalUuid._2 + File.separator + finalUuid._2 + ".zip")
+
           val parent: File = file.getParentFile
           println("file : " + file.getAbsolutePath)
           if (!parent.exists && !parent.mkdirs) {
             throw new IllegalStateException("Couldn't create dir: " + parent)
           }
+
+          else FileUtils.cleanDirectory(parent);
+
           println("to body parser");
           val fo: BodyParser[(Session, File)] = sessionAndfile(file, finalUuid._1);
           println("fo : " + fo);
@@ -81,7 +91,7 @@ object Upload extends Controller {
       println("uuid get or else -> else")
       val newUuid = java.util.UUID.randomUUID().toString()
       println("new uuid " + newUuid)
-      session = session.+("uuid", newUuid)
+      session = session +("uuid", newUuid)
       newUuid
     })
     (session, uuid)
@@ -90,100 +100,47 @@ object Upload extends Controller {
   //extract the archive and proceed
   //, channel : Concurrent.Channel[JsValue]
   def useArchive(data: (Session, File)) = {
-    val session = data._1
+    var session = data._1
     val archive = data._2
     val directoryPath = archive.getAbsoluteFile.getParentFile.getAbsolutePath
     //unzip
-    val command = "unzip -n " + archive.getAbsolutePath + " -d " + directoryPath
-    println(command)
+    val command1 = "unzip -n " + archive.getAbsolutePath + " -d " + directoryPath
+    println(command1)
     try {
-      ProcessUtils.executeCommandLine(command, 5000)
+      ProcessUtils.executeCommandLine(command1, 5000)
+      archive.delete()
     }
     catch {
       case e: TimeoutException => {
+        println("timeout")
+        //failed unzip -> success false
+        Ok(
+          Json.toJson(
+            Map(
+              "success" -> JsBoolean(false),
+              "uuid" -> JsString(session.get("uuid").getOrElse(""))
+            )
+          )
+        ).as("text/html").withSession(session)
+      }
+    }
 
-      }
-    }
-    //check if correctly extracted
-    val directories = IOUtils.subdirectories(directoryPath)
-    //case extracted at the root
-    if (directories.length > 1) {
-      if (directories.contains("res")) {
-        Main.main(directoryPath + File.separator + "res")
-      }
-    }
-    //case extracted
-    else if (directories.length == 1) {
-      //lets try to apply the lib
-      Main.main(directoryPath + File.separator + directories(0))
-    }
+    session = session +("directory", directoryPath)
 
     println("Ok !!!")
 
-    Ok("File uploaded : " + archive.getName).withSession(session)
+    Ok(
+      Json.toJson(
+        Map(
+          "success" -> JsBoolean(true),
+          "uuid" -> JsString(session.get("uuid").getOrElse(""))
+        )
+      )
+    ).as("text/html").withSession(session)
   }
 
   def fileUploaderGet = Action {
     Ok("upload servlet")
   }
 
-
-  def transform = WebSocket.using[JsValue] {
-    request => StringTool.start
-
-  }
-
-  object StringTool {
-
-    def start: (Iteratee[JsValue, _], Enumerator[JsValue]) = {
-      val (progressEnumerator, progressChannel) = Concurrent.broadcast[JsValue]
-      val iteratee = Iteratee.foreach[JsValue](
-
-      {
-        value => println("received : " + value)
-          updateProgressTest(progressChannel)
-      })
-        .mapDone {
-        _ => println("Disconnected")
-      }
-
-      (iteratee, progressEnumerator)
-    }
-
-
-    def updateProgressTest(progressChannel: Concurrent.Channel[JsValue]) = {
-      new Thread(new Runnable {
-        def run() {
-          var progress = 0
-          while (progress < 100) {
-            notifyProgress(Message("in progress", progress), progressChannel);
-            Thread.sleep(1000)
-            progress += 5
-          }
-        }
-      }).run
-    }
-
-    def notifyProgress(msg: Message, channel: Concurrent.Channel[JsValue]) {
-      val json: JsValue = Json.toJson(
-        Map(
-          "value" -> JsNumber(msg.percent),
-          "text" -> JsString(msg.message)
-        )
-      )
-      channel.push(json)
-    }
-
-  }
-
-
 }
-
-case class Enum(enumerator: Enumerator[JsValue])
-
-case class Percent(percent: Int)
-
-case class Message(message: String, percent: Int)
-
-case class Initialisation(state: Boolean)
-

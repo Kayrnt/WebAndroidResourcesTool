@@ -5,6 +5,7 @@ import play.api.mvc._
 import play.api.data._
 import play.api.data.Forms._
 import views._
+import play.api.libs.json.JsValue
 
 object Application extends Controller {
 
@@ -17,13 +18,14 @@ object Application extends Controller {
     Ok(html.index("Android String tool", null)(null))
   }
 
+
   // -- Javascript routing
 
   def javascriptRoutes = Action { implicit request =>
     import routes.javascript._
     Ok(
       Routes.javascriptRouter("jsRoutes")(
-        Upload.transform
+        Processing.transform
       )
     ).as("text/javascript")
   }

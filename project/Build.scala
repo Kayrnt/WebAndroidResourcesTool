@@ -8,14 +8,10 @@ object ApplicationBuild extends Build {
   val appVersion = "1.0-SNAPSHOT"
 
   val appDependencies = Seq(
-    "com.typesafe.akka" %% "akka-actor" % "2.1.4",
-    "com.typesafe.akka" %% "akka-slf4j" % "2.1.4",
-    "org.webjars" %% "webjars-play" % "2.1.0-2",
-    "org.webjars" % "bootstrap" % "2.3.1",
-    "org.webjars" % "flot" % "0.8.0",
-    "com.typesafe.akka" %% "akka-testkit" % "2.1.4" % "test",
-    "net.lingala.zip4j" % "zip4j" % "1.3.1",
-     "com.google.guava" % "guava" % "15.0"
+    "com.typesafe.akka" %% "akka-actor" % "2.2.1",
+    "com.typesafe.akka" %% "akka-slf4j" % "2.2.1",
+    "com.typesafe.akka" %% "akka-testkit" % "2.2.1" % "test",
+      "commons-io" % "commons-io" % "2.4"
   )
 
   val main = play.Project(appName, appVersion, appDependencies).settings()
