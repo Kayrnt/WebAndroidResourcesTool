@@ -72,7 +72,7 @@ class StringToolProcess(path: String, actorC: ProgressActor) {
       stringNode =>
         new StringElement((stringNode \ "@name").text, stringNode.text)
     }))
-    Logger.debug("reading : " + file.getParent + "/" + file.getName)
+    //    Logger.debug("reading : " + file.getParent + "/" + file.getName)
   }
 
   //no args version of files process because we are at the root
@@ -150,8 +150,6 @@ class StringToolProcess(path: String, actorC: ProgressActor) {
   }
 
   def checkElementIsInOtherStringsXML(stringElement: StringElement, position: Int) {
-    Logger.debug("checkElementIsInOtherStringsXML (" + position + ")")
-
     stringsFile.foreach(
       resource => {
         val currentList: Seq[StringElement] = resource.resources.strings
@@ -170,9 +168,7 @@ class StringToolProcess(path: String, actorC: ProgressActor) {
         }
       })
 
-//    Logger.debug("telling actor... (" + position + ")")
     actor.self.tell(ProgressActor.ITEM_TREATED, actor.self)
-    Logger.debug("actor -> file treated")
 
 
   }
@@ -183,10 +179,8 @@ class StringToolProcess(path: String, actorC: ProgressActor) {
       resource => {
         val builder: StringBuilder = new StringBuilder
         val parts: Array[String] = resource.parts
-//        Logger.debug("merged strings : "+parts.size)
         parts.foreach(
           part => {
-//            Logger.debug("part : " + part)
             builder.append(part)
           }
         )
@@ -210,11 +204,5 @@ class StringToolProcess(path: String, actorC: ProgressActor) {
           }
         })
   }
-
-  //  def reset {
-  //    backup = true
-  //    revert = false
-  //  }
-
 
 }
