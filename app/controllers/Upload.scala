@@ -12,7 +12,7 @@ import play.api.libs.iteratee._
 import play.api.mvc.MaxSizeExceeded
 import play.api.libs.json._
 import java.util.concurrent.TimeoutException
-import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.commons.io.{FileUtils}
 import scala.concurrent.ExecutionContext
 import ExecutionContext.Implicits.global
 

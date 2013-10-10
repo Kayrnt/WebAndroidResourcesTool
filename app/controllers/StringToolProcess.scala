@@ -1,13 +1,12 @@
 package controllers
 
-import utils.{ParserUtils, IOUtils}
+import utils.{IOUtils}
 import java.io._
 import java.lang.{StringBuilder, Boolean, String}
 import model.{StringElement, AndroidStringRessource, ResourcesElement}
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent._
 import ExecutionContext.Implicits.global
-import scalax.io.support.FileUtils
 import play.api.Logger
 
 /**
